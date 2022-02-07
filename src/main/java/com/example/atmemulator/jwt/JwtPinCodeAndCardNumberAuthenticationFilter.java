@@ -1,6 +1,7 @@
 package com.example.atmemulator.jwt;
 
 
+import com.example.atmemulator.service.CreditCardService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Jwts;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -23,15 +24,18 @@ public class JwtPinCodeAndCardNumberAuthenticationFilter extends UsernamePasswor
     private final AuthenticationManager authenticationManager;
     private final JwtConfig jwtConfig;
     private final SecretKey secretKey;
+    private final CreditCardService creditCardService;
 
     public JwtPinCodeAndCardNumberAuthenticationFilter(AuthenticationManager authenticationManager,
                                                        JwtConfig jwtConfig,
-                                                       SecretKey secretKey) {
+                                                       SecretKey secretKey,
+                                                       CreditCardService creditCardService) {
         this.authenticationManager = authenticationManager;
         this.jwtConfig = jwtConfig;
         this.secretKey = secretKey;
+        this.creditCardService = creditCardService;
     }
-
+    
     @Override
     public Authentication attemptAuthentication(HttpServletRequest request,
                                                 HttpServletResponse response) throws AuthenticationException {
@@ -41,9 +45,13 @@ public class JwtPinCodeAndCardNumberAuthenticationFilter extends UsernamePasswor
                             PinAndCardNumberAuthenticationRequest.class);
             Authentication authentication = new UsernamePasswordAuthenticationToken
                     (authenticationRequest.getCardNumber(), authenticationRequest.getPinCode());
-            return authenticationManager.authenticate(authentication);
+
+            Authentication authenticate = authenticationManager.authenticate(authentication);
+            if(authenticate.isAuthenticated())
+                creditCardService.resetLoginAttempt(authenticationRequest.getCardNumber());
+            return authenticate;
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException( e);
         }
     }
 
@@ -60,6 +68,7 @@ public class JwtPinCodeAndCardNumberAuthenticationFilter extends UsernamePasswor
                 .compact();
         response.addHeader(jwtConfig.getAuthorizationHeader(),
                 jwtConfig.getTokenPrefix() + token);
+
     }
 
 }
