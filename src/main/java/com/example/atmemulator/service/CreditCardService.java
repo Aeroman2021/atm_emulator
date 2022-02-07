@@ -8,7 +8,11 @@ import com.example.atmemulator.repository.CreditCardRepository;
 import com.example.atmemulator.service.core.AbstractCrud;
 import com.example.atmemulator.service.core.EntityConvertor;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
 import java.time.LocalDateTime;
@@ -16,7 +20,8 @@ import java.time.LocalDateTime;
 @Service
 @RequiredArgsConstructor
 public class CreditCardService extends AbstractCrud<CreditCard, Integer>
-        implements EntityConvertor<CreditCardInputDto, CreditCard, CreditCardOutputDto> {
+        implements EntityConvertor<CreditCardInputDto, CreditCard, CreditCardOutputDto>
+, UserDetailsService {
 
     private final CreditCardRepository creditCardRepository;
 
@@ -38,9 +43,27 @@ public class CreditCardService extends AbstractCrud<CreditCard, Integer>
                 .orElseThrow(() -> new NotFoundException("Invalid number"));
     }
 
-    public Boolean CreditCardIsValid(String cardNumber){
+    public Boolean CreditCardIsValid(String cardNumber) {
         return findCardByPinCode(cardNumber) != null;
     }
+
+    @Transactional
+    public void increaseLoginAttemptOrLock(String cardNumber) {
+        CreditCard foundCard = findCardByNumber(cardNumber);
+        if (foundCard.getLoginAttempt() < 2) {
+            Integer updatedLoginAttempt = (foundCard.getLoginAttempt()) + 1;
+            foundCard.setLoginAttempt(updatedLoginAttempt);
+        } else
+            foundCard.setLocked(true);
+        super.update(foundCard);
+    }
+
+    public void resetLoginAttempt(String cardNumber){
+        CreditCard foundCard = findCardByNumber(cardNumber);
+        foundCard.setLoginAttempt(0);
+        super.update(foundCard);
+    }
+
 
 
     @Override
@@ -61,6 +84,10 @@ public class CreditCardService extends AbstractCrud<CreditCard, Integer>
                 .build();
     }
 
+    @Override
+    public UserDetails loadUserByUsername(String cardNumber) throws UsernameNotFoundException {
+        return creditCardRepository.findCreditCardByCardNumber(cardNumber)
+                .orElseThrow(() -> new UsernameNotFoundException(""));
 
-
+    }
 }
