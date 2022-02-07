@@ -37,6 +37,7 @@ public class CreditCard implements UserDetails {
 
     private Boolean locked = false;
     private Boolean enabled = false;
+    private Integer loginAttempt = 0;
 
 
     @Override
